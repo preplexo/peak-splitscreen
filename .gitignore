@@ -1,0 +1,10 @@
+# decompiled game code - never commit
+decompiled/
+decompiled-libs/
+
+# build output
+src/bin/
+src/obj/
+
+# local test screenshots
+*.png
