@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System.Text;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -58,6 +58,7 @@ namespace PeakSplitScreen
             string script = (Plugin.DebugScript.Value ?? "").Trim().ToLowerInvariant();
             if (script == "passport") { PassportScript(t, ref state); InputSystem.QueueStateEvent(_virtualPad, state); return; }
             if (script == "run") { RunScript(t, ref state); InputSystem.QueueStateEvent(_virtualPad, state); return; }
+            if (script == "fog") { FogScript(t); InputSystem.QueueStateEvent(_virtualPad, state); return; }
             string phase;
             if (t < 3f) phase = "idle";
             else if (t < 5f) { phase = "turn around"; state.rightStick = new Vector2(1f, 0f); }
@@ -139,6 +140,7 @@ namespace PeakSplitScreen
             if (Once(t, 40f, "walked")) Say("after walking");
             if (t >= 41f && t < 41.6f) Press(ref state, "UsePrimary");
             if (Once(t, 43f, "reopened")) Say("reopened");
+            if (Once(t, 43.3f, "hatsash")) HatSashCheck();
             if (Tap(t, 44f)) state = state.WithButton(GamepadButton.Start);
             if (Once(t, 46f, "done")) Say("done (closed with start; pause menu should not be open: paused=" + (P2Hud.CloneGui != null && P2Hud.CloneGui.pauseMenu != null && P2Hud.CloneGui.pauseMenu.activeSelf) + ")");
         }
@@ -166,6 +168,144 @@ namespace PeakSplitScreen
             else if (c < 17f) Press(ref state, "Drop");
             if (Once(t, Mathf.Floor(t / 10f) * 10f, "s" + (int)(t / 10f)))
                 Plugin.Log.LogInfo("[debug] run t=" + t.ToString("0") + " " + ItemInfo() + " | " + SplitManager.Status() + " | " + Health() + " | " + P2Audio.Status());
+        }
+
+        /// <summary>Pick something on the Hat and Sash tabs for player 2 and report whether it took.</summary>
+        private static void HatSashCheck()
+        {
+            PassportManager pm = PassportManager.instance;
+            Customization all = Zorro.Core.Singleton<Customization>.Instance;
+            if (pm == null || all == null || !pm.isOpen || !P2Passport.P2Owns) { Plugin.Log.LogInfo("[debug] hat/sash check skipped: passport not open for player 2"); return; }
+            CharacterCustomizationData d = P2Passport.P2Data();
+            CustomizationOption fit = all.fits[Mathf.Clamp(d.currentOutfit, 0, all.fits.Length - 1)];
+            Plugin.Log.LogInfo("[debug] hat/sash check: outfit " + d.currentOutfit + " overrides hat=" + fit.overrideHat + " (to " + fit.overrideHatIndex + ")");
+            foreach (Customization.Type type in new[] { Customization.Type.Hat, Customization.Type.Sash })
+            {
+                CustomizationOption[] list = all.GetList(type);
+                int open = 0;
+                string which = "";
+                for (int i = 0; i < list.Length; i++) if (!list[i].IsLocked) { open++; which += i + " "; }
+                int before = type == Customization.Type.Hat ? d.currentHat : d.currentSash;
+                pm.OpenTab(type);
+                bool forced = false;
+                PassportButton pick = FindButton(pm, before, false);
+                if (pick == null)
+                {
+                    forced = true;
+                    pm.testUnlockAll = true;      // only to prove the code path; switched back below
+                    pm.SetButtons();
+                    pick = FindButton(pm, before, true);
+                }
+                int want = pick != null ? pick.currentIndex : -1;
+                if (pick != null) pick.button.onClick.Invoke();
+                d = P2Passport.P2Data();
+                int after = type == Customization.Type.Hat ? d.currentHat : d.currentSash;
+                Plugin.Log.LogInfo("[debug] " + type + ": options=" + list.Length + " unlocked=" + open + " [" + which.Trim() + "] before=" + before + " clicked=" + want
+                    + (forced ? " (locked option, unlock forced for the test)" : "") + " after=" + after + " -> " + (after == want && want != before ? "CHANGED" : "NOT CHANGED")
+                    + " | hat shown=" + HatShown());
+                if (forced)
+                {
+                    PassportButton back = null;
+                    foreach (PassportButton b in pm.buttons) if (b.isActiveAndEnabled && b.currentIndex == before) back = b;
+                    if (back != null) back.button.onClick.Invoke();
+                    pm.testUnlockAll = false;
+                    pm.SetButtons();
+                }
+            }
+            Say("after hat/sash check");
+        }
+
+        private static string HatShown()
+        {
+            var hats = SplitManager.P2Character.refs.customization.refs.playerHats;
+            if (hats == null) return "?";
+            for (int i = 0; i < hats.Length; i++) if (hats[i] != null && hats[i].gameObject.activeSelf) return i.ToString();
+            return "none";
+        }
+
+        private static PassportButton FindButton(PassportManager pm, int current, bool allowLocked)
+        {
+            foreach (PassportButton b in pm.buttons)
+            {
+                if (b == null || !b.isActiveAndEnabled || b.currentOption == null || b.currentIndex == current) continue;
+                if (b.currentOption.IsLocked && !allowLocked) continue;
+                return b;
+            }
+            return null;
+        }
+
+        private static float _levelAt = -1f;
+        private static WindChillZone _testZone;
+
+        /// <summary>Start a run, go somewhere with weather, and put the players on opposite sides of it.</summary>
+        private static void FogScript(float t)
+        {
+            string scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+            if (scene == "Airport")
+            {
+                _levelAt = -1f;
+                if (Once(t, 8f, "start"))
+                {
+                    AirportCheckInKiosk kiosk = Object.FindAnyObjectByType<AirportCheckInKiosk>();
+                    Plugin.Log.LogInfo("[debug] starting a run, kiosk=" + (kiosk != null));
+                    if (kiosk != null) kiosk.StartGame(0);
+                }
+                return;
+            }
+            if (_levelAt < 0f) _levelAt = t;
+            float l = t - _levelAt;
+            Character p1 = Character.localCharacter, p2 = SplitManager.P2Character;
+            if (p1 == null || p2 == null) return;
+            if (Once(l, 12f, "dump1")) FogDump("on the beach");
+            if (Once(l, 14f, "jump"))
+            {
+                Plugin.Log.LogInfo("[debug] jumping to the tropics");
+                MapHandler.JumpToSegment(Segment.Tropics);
+            }
+            if (Once(l, 26f, "wind"))
+            {
+                FogDump("in the tropics");
+                foreach (WindChillZone z in Object.FindObjectsByType<WindChillZone>(FindObjectsSortMode.None))
+                    if (z.isActiveAndEnabled) _testZone = z;
+                if (_testZone != null && !_testZone.windActive) _testZone.untilSwitch = -1f;
+                Plugin.Log.LogInfo("[debug] test zone=" + (_testZone != null ? _testZone.name + " bounds=" + _testZone.windZoneBounds : "none"));
+            }
+            if (_testZone == null) return;
+            _testZone.windActive = true;          // hold the storm on for the whole test
+            _testZone.timeUntilNextWind = 200f;
+            _testZone.untilSwitch = 100f;
+            Bounds b = _testZone.windZoneBounds;
+            Vector3 outside = new Vector3(b.center.x, b.max.y + 200f, b.center.z);
+            Vector3 inside = b.center;
+            // 30-50: both wherever the jump put them. 50-70: player 1 above the zone. 70-90: player 2 above it.
+            if (l >= 46f && l < 70f) { if (!b.Contains(p2.Center) && Once(l, 46f, "p2in")) p2.WarpPlayer(inside, false); }
+            if (l >= 50f && l < 70f && p1.Center.y < b.max.y + 60f) p1.WarpPlayer(outside, false);
+            if (Once(l, 70f, "p1in")) p1.WarpPlayer(inside, false);
+            if (l >= 72f && l < 90f && p2.Center.y < b.max.y + 60f) p2.WarpPlayer(outside, false);
+            if (Once(l, 90f, "p2back")) p2.WarpPlayer(inside, false);
+            if (l >= 26f && Once(l, Mathf.Floor(l / 4f) * 4f, "f" + (int)(l / 4f)))
+                Plugin.Log.LogInfo("[debug] fog l=" + l.ToString("0") + " zoneActive=" + _testZone.windActive + " intensity=" + _testZone.windIntensity.ToString("0.00")
+                    + " p1in=" + b.Contains(p1.Center) + " p2in=" + b.Contains(p2.Center) + " | " + P2Fog.Status());
+        }
+
+        private static void FogDump(string where)
+        {
+            var sb = new System.Text.StringBuilder("[debug] fog objects " + where + ":");
+            foreach (StormVisual s in Object.FindObjectsByType<StormVisual>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+                sb.Append("\n  StormVisual " + s.name + " active=" + s.isActiveAndEnabled + " type=" + s.stormType + " parts=" + (s.part != null ? s.part.Length : 0)
+                    + " quad=" + (s.quadRend != null) + " zoneIntensity=" + s.useWindChillZoneIntensity
+                    + " sim=" + (s.part != null && s.part.Length > 0 && s.part[0] != null ? s.part[0].main.simulationSpace.ToString() : "?"));
+            foreach (WindChillZone z in Object.FindObjectsByType<WindChillZone>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+                sb.Append("\n  WindChillZone " + z.name + " active=" + z.isActiveAndEnabled + " wind=" + z.windActive + " bounds=" + z.windZoneBounds);
+            Fog fog = Object.FindAnyObjectByType<Fog>(FindObjectsInactive.Include);
+            sb.Append("\n  Fog=" + (fog != null ? "yes enabled=" + fog.isActiveAndEnabled + " stops=" + (fog.stops != null) + " particles=" + (fog.fogParticles != null) : "no"));
+            FogSphere sphere = Object.FindAnyObjectByType<FogSphere>(FindObjectsInactive.Include);
+            sb.Append("\n  FogSphere=" + (sphere != null ? "yes size=" + sphere.currentSize.ToString("0") + " enable=" + sphere.ENABLE : "no"));
+            sb.Append("\n  DispelFogField=" + Object.FindObjectsByType<DispelFogField>(FindObjectsInactive.Include, FindObjectsSortMode.None).Length
+                + " PlayerShaderParams=" + (Object.FindAnyObjectByType<PlayerShaderParams>() != null)
+                + " GloomSafeZones=" + Peak.GloomSafeZone.ALL_GLOOM_SAFE_ZONES.Count
+                + " p1=" + Character.localCharacter.Center + " p2=" + SplitManager.P2Character.Center);
+            Plugin.Log.LogInfo(sb.ToString());
         }
 
         private static void SpawnZone()

@@ -74,14 +74,16 @@ Leave the `[Debug]` options set to `false`. They exist for testing the mod.
 - Injuries, passing out and dying apply to the right player.
 - A player who has passed out or died spectates the other one.
 - Player 2 has their own passport and their own saved look.
+- Each half shows the weather where that player is: wind and storm effects appear only for the player standing in them.
 - Both players hear the sounds around them: each sound plays as loud as it is for the nearer player, and comes from the side it is on for whoever is hearing it. There is one shared soundtrack.
 
 ## Known limits
 
 - Tested in the airport lobby and for the first few minutes of a run on the beach. The rest of the mountain (fog, wind, lava, campfires, traps, the end of the run) has had little testing.
 - Music and background ambience follow where player 1 is. Sound effects near player 2 have no pitch shift from movement.
-- Fog visuals follow player 1.
-- Player 2's passport only offers what player 1's account has unlocked.
+- Per-player weather has only been tested in a wind storm. The rising fog and the fog-clearing fields use the same code path but have not been seen in a test run yet.
+- A few weather details still follow player 1: the sky darkening during a storm, lava heat haze, and the clear bubble the fog leaves around a player.
+- Player 2's passport offers what player 1's account has unlocked. Locked hats, sashes and other options stay locked for both players.
 - A game update can break the mod until it is rebuilt.
 
 ## Uninstall
@@ -120,6 +122,7 @@ To refresh the installer's copy, copy `src\bin\Release\PeakSplitScreen.dll` to `
 | `P2Hud.cs` | Player 2's HUD, name tags and per-player screen effects. |
 | `P2Passport.cs` | Player 2's passport, gamepad navigation and saved look. |
 | `P2Audio.cs` | Mixes positional sound for both players through the one listener. |
+| `P2Fog.cs` | Shows fog, wind and storm visuals per player. |
 | `Hazards.cs` | Makes hazards affect player 2. |
 | `DebugTools.cs` | Scripted test pad used by the `[Debug]` options. |
 

@@ -46,7 +46,7 @@ namespace PeakSplitScreen
             P2Cosmetics = Config.Bind("Player2", "Cosmetics", "",
                 "Player 2's look, saved when they change it in their passport (skin, accessory, eyes, mouth, outfit, hat, sash, medal). Leave empty for a random look.");
             DebugScript = Config.Bind("Debug", "Script", "basics",
-                "Testing only: what the virtual gamepad does (basics, passport, run).");
+                "Testing only: what the virtual gamepad does (basics, passport, run, fog).");
             DebugAutoOffline = Config.Bind("Debug", "AutoStartOffline", false,
                 "Testing only: automatically start an offline game from the main menu.");
             DebugNoGamepad = Config.Bind("Debug", "SpawnWithoutGamepad", false,
@@ -107,6 +107,8 @@ namespace PeakSplitScreen
         {
             try { SplitManager.LateTick(); }
             catch (System.Exception e) { SplitManager.Fail("LateTick", e); }
+            try { P2Fog.Tick(); }
+            catch (System.Exception e) { Log.LogError("Fog: " + e); }
         }
     }
 }

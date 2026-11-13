@@ -90,6 +90,7 @@ namespace PeakSplitScreen
             {
                 _hooked = true;
                 RenderPipelineManager.beginCameraRendering += OnBeginCameraRendering;
+                RenderPipelineManager.endCameraRendering += OnEndCameraRendering;
                 Application.onBeforeRender += OnBeforeRender;
             }
 
@@ -415,8 +416,15 @@ namespace PeakSplitScreen
                 else return;
                 BodyVisibility.Apply(p1, viewer);
                 BodyVisibility.Apply(P2Character, viewer);
+                P2Fog.BeginCamera(cam);
             }
             catch (Exception e) { Fail("BeginCameraRendering", e); }
+        }
+
+        private static void OnEndCameraRendering(ScriptableRenderContext ctx, Camera cam)
+        {
+            try { P2Fog.EndCamera(cam); }
+            catch (Exception e) { Fail("EndCameraRendering", e); }
         }
 
         // ------------------------------------------------------------------ teardown
@@ -434,6 +442,7 @@ namespace PeakSplitScreen
             MainCamera main = MainCamera.instance;
             if (main != null && main.cam != null) main.cam.rect = new Rect(0f, 0f, 1f, 1f);
             BodyVisibility.Reset();
+            P2Fog.Reset();
             SplitExtras.OnP2Lost();
         }
 

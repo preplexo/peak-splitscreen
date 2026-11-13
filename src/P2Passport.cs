@@ -236,14 +236,14 @@ namespace PeakSplitScreen
             Plugin.P2Cosmetics.Value = Describe(d);
         }
 
-        private static CharacterCustomizationData P2Data()
+        internal static CharacterCustomizationData P2Data()
         {
             PersistentPlayerDataService svc = GameHandler.GetService<PersistentPlayerDataService>();
             if (svc == null || SplitManager.P2Photon == null) return null;
             return svc.GetPlayerData(SplitManager.P2Photon.ActorNumber).customizationData;
         }
 
-        private static string Describe(CharacterCustomizationData d)
+        internal static string Describe(CharacterCustomizationData d)
         {
             return d == null ? "none" : d.currentSkin + "," + d.currentAccessory + "," + d.currentEyes + "," + d.currentMouth + ","
                 + d.currentOutfit + "," + d.currentHat + "," + d.currentSash + "," + d.currentMedal;
