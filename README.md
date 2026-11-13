@@ -5,9 +5,17 @@ A mod for [PEAK](https://store.steampowered.com/app/3527290/PEAK/) that lets two
 - **Player 1** plays with keyboard and mouse.
 - **Player 2** plays with a gamepad.
 
-This is an unofficial, personal-use mod. It is not affiliated with or endorsed by the makers of PEAK. You need your own copy of the game on Steam.
+It runs the game once and draws two views, so there is no second copy of the game to launch and no extra tool to set up.
+
+This is an unofficial mod. It is not affiliated with or endorsed by the makers of PEAK. You need your own copy of the game on Steam.
 
 ## Install
+
+### With a mod manager
+
+Install **PEAK Split Screen** from Thunderstore with r2modman or Gale, then start the game from the mod manager.
+
+### By hand
 
 1. Close PEAK if it is running.
 2. Download this folder (green **Code** button > **Download ZIP**, then unzip it).
@@ -46,13 +54,13 @@ Player 2's look is saved separately from player 1's and comes back the next time
 
 ## Settings
 
-After the first launch with the mod, a settings file appears at:
+After the first launch with the mod, a settings file named `orchen17.peak.splitscreen.cfg` appears. In a mod manager, open it from the config editor. With a hand install it is at:
 
 ```
-<PEAK folder>\BepInEx\config\local.peak.splitscreen.cfg
+<PEAK folder>\BepInEx\config\orchen17.peak.splitscreen.cfg
 ```
 
-Open it in Notepad. The options under `[General]`:
+The options under `[General]`:
 
 | Option | Default | What it does |
 | --- | --- | --- |
@@ -64,7 +72,9 @@ Open it in Notepad. The options under `[General]`:
 
 `[Player2]` has one option, `Cosmetics`: player 2's saved look, written by their passport. Clear it to get a random look again.
 
-Leave the `[Debug]` options set to `false`. They exist for testing the mod.
+## Reporting a problem
+
+Open an issue on the [GitHub page](https://github.com/OrChen17/peak-splitscreen/issues) and attach `BepInEx\LogOutput.log` from the run where it went wrong.
 
 ## What works
 
@@ -107,7 +117,9 @@ The build reads the game's own DLLs from the game folder and copies the finished
 dotnet build -c Release -p:GameDir="D:\SteamLibrary\steamapps\common\PEAK"
 ```
 
-To refresh the installer's copy, copy `src\bin\Release\PeakSplitScreen.dll` to `dist\`.
+To refresh the installer's copy, copy `src\bin\Release\PeakSplitScreen.dll` to `dist\`. To make the Thunderstore zip from that copy, run `pack.bat`; the zip lands in `dist\`.
+
+The scripted test options are read from `BepInEx\config\orchen17.peak.splitscreen.debug.cfg` if that file exists (section `[Debug]`; the option names are in `Plugin.cs`). The mod never creates it.
 
 ### Source layout
 
@@ -124,6 +136,6 @@ To refresh the installer's copy, copy `src\bin\Release\PeakSplitScreen.dll` to `
 | `P2Audio.cs` | Mixes positional sound for both players through the one listener. |
 | `P2Fog.cs` | Shows fog, wind and storm visuals per player. |
 | `Hazards.cs` | Makes hazards affect player 2. |
-| `DebugTools.cs` | Scripted test pad used by the `[Debug]` options. |
+| `DebugTools.cs` | Scripted test pad used by the test options. |
 
 No game code or assets are included in this repository.

@@ -8,3 +8,7 @@ src/obj/
 
 # local test screenshots
 *.png
+!thunderstore/icon.png
+
+# packaged release
+dist/*.zip

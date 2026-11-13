@@ -39,8 +39,8 @@ if exist "!GAME!\BepInEx\plugins\PeakSplitScreen" (
 ) else (
   echo  The mod was not installed.
 )
-if exist "!GAME!\BepInEx\config\local.peak.splitscreen.cfg" (
-  del "!GAME!\BepInEx\config\local.peak.splitscreen.cfg"
+if exist "!GAME!\BepInEx\config\orchen17.peak.splitscreen.cfg" (
+  del "!GAME!\BepInEx\config\orchen17.peak.splitscreen.cfg"
   echo  Removed its settings file.
 )
 

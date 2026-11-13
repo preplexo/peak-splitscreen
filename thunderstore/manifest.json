@@ -1,0 +1,9 @@
+{
+  "name": "PEAK_Split_Screen",
+  "version_number": "0.1.0",
+  "website_url": "https://github.com/OrChen17/peak-splitscreen",
+  "description": "Two players on one PC in one split window. Player 1 on keyboard and mouse, player 2 on a gamepad. Offline only, no second game instance needed.",
+  "dependencies": [
+    "BepInEx-BepInExPack_PEAK-5.4.75301"
+  ]
+}

@@ -6,10 +6,12 @@ using UnityEngine;
 
 namespace PeakSplitScreen
 {
-    [BepInPlugin(Guid, "PEAK Split Screen", "0.1.0")]
+    [BepInPlugin(Guid, "PEAK Split Screen", Version)]
     public class Plugin : BaseUnityPlugin
     {
-        public const string Guid = "local.peak.splitscreen";
+        public const string Guid = "orchen17.peak.splitscreen";
+        public const string Version = "0.1.0";
+        private const string OldGuid = "local.peak.splitscreen";
 
         internal static ManualLogSource Log;
         internal static ConfigEntry<bool> Enabled;
@@ -33,6 +35,20 @@ namespace PeakSplitScreen
         private void Awake()
         {
             Log = Logger;
+            // Settings saved under the mod's earlier ID carry over once.
+            try
+            {
+                string old = System.IO.Path.Combine(Paths.ConfigPath, OldGuid + ".cfg");
+                if (System.IO.File.Exists(old) && !System.IO.File.Exists(Config.ConfigFilePath))
+                {
+                    System.IO.File.Copy(old, Config.ConfigFilePath);
+                    Config.Reload();
+                }
+            }
+            catch (System.Exception e) { Log.LogWarning("Could not carry over old settings: " + e.Message); }
+            // Test options live in their own file, which is read if present and never created.
+            ConfigFile dbg = new ConfigFile(System.IO.Path.Combine(Paths.ConfigPath, Guid + ".debug.cfg"), false);
+            dbg.SaveOnConfigSet = false;
             Enabled = Config.Bind("General", "Enabled", true,
                 "Spawn a second, gamepad-controlled player when playing OFFLINE with a gamepad connected.");
             SideBySide = Config.Bind("General", "SideBySide", true,
@@ -45,17 +61,17 @@ namespace PeakSplitScreen
                 "Let both players hear what is around them: each sound plays for whichever player is nearer. Music stays shared.");
             P2Cosmetics = Config.Bind("Player2", "Cosmetics", "",
                 "Player 2's look, saved when they change it in their passport (skin, accessory, eyes, mouth, outfit, hat, sash, medal). Leave empty for a random look.");
-            DebugScript = Config.Bind("Debug", "Script", "basics",
+            DebugScript = dbg.Bind("Debug", "Script", "basics",
                 "Testing only: what the virtual gamepad does (basics, passport, run, fog).");
-            DebugAutoOffline = Config.Bind("Debug", "AutoStartOffline", false,
+            DebugAutoOffline = dbg.Bind("Debug", "AutoStartOffline", false,
                 "Testing only: automatically start an offline game from the main menu.");
-            DebugNoGamepad = Config.Bind("Debug", "SpawnWithoutGamepad", false,
+            DebugNoGamepad = dbg.Bind("Debug", "SpawnWithoutGamepad", false,
                 "Testing only: spawn player 2 even when no gamepad is connected.");
 
-            DebugMute = Config.Bind("Debug", "Mute", false, "Testing only: silence the game.");
-            DebugScreenshots = Config.Bind("Debug", "Screenshots", false,
+            DebugMute = dbg.Bind("Debug", "Mute", false, "Testing only: silence the game.");
+            DebugScreenshots = dbg.Bind("Debug", "Screenshots", false,
                 "Testing only: save a screenshot every few seconds to BepInEx/splitscreen-shots.");
-            DebugFakeGamepad = Config.Bind("Debug", "FakeGamepad", false,
+            DebugFakeGamepad = dbg.Bind("Debug", "FakeGamepad", false,
                 "Testing only: create a scripted virtual gamepad that drives player 2.");
 
             Harmony = new Harmony(Guid);
