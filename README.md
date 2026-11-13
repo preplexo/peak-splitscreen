@@ -23,8 +23,10 @@ Windows may warn about running a downloaded `.bat` file. Choose **More info > Ru
 
 1. Plug in a gamepad before starting the game.
 2. Start PEAK from Steam.
-3. Start an **offline** game.
+3. On the title menu, pick **Play Split-Screen** (the new sign with two hikers, under Play Offline).
 4. Player 2 appears next to player 1 and the screen splits. Player 2 uses the game's normal gamepad controls.
+
+To play alone, pick **Play Offline** as usual: that is always a normal one-player game. The game remembers your last pick, so continuing a saved offline run uses the same number of players.
 
 Split screen only works in offline games. Online games are left untouched.
 
@@ -43,6 +45,7 @@ Open it in Notepad. The options under `[General]`:
 | `Enabled` | `true` | Turn the mod on or off without uninstalling. |
 | `SideBySide` | `true` | `true` splits left / right. `false` splits top / bottom. |
 | `Player2Hud` | `true` | Show player 2's own stamina bar, inventory and prompts on their half. |
+| `TwoPlayers` | `true` | Your last title-menu pick. Play Split-Screen sets it to `true`, Play Offline to `false`. No need to edit it by hand. |
 
 Leave the `[Debug]` options set to `false`. They exist for testing the mod.
 
@@ -90,6 +93,7 @@ To refresh the installer's copy, copy `src\bin\Release\PeakSplitScreen.dll` to `
 | File | Purpose |
 | --- | --- |
 | `Plugin.cs` | Entry point and settings. |
+| `MenuOption.cs` | Adds the Play Split-Screen sign to the title menu. |
 | `SplitManager.cs` | Spawns player 2, owns the second camera and the gamepad. |
 | `SplitContext.cs` | Swaps the game's "local player" state so its code can run for player 2. |
 | `Patches.cs` | Harmony patches that route game code to the right player. |

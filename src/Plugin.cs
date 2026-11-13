@@ -15,6 +15,7 @@ namespace PeakSplitScreen
         internal static ConfigEntry<bool> Enabled;
         internal static ConfigEntry<bool> SideBySide;
         internal static ConfigEntry<bool> P2HudEnabled;
+        internal static ConfigEntry<bool> TwoPlayers;
         internal static ConfigEntry<bool> DebugAutoOffline;
         internal static ConfigEntry<bool> DebugNoGamepad;
         internal static ConfigEntry<bool> DebugMute;
@@ -35,6 +36,8 @@ namespace PeakSplitScreen
                 "true = left/right split, false = top/bottom split.");
             P2HudEnabled = Config.Bind("General", "Player2Hud", true,
                 "Give player 2 their own HUD (stamina, items, prompts) in their half of the window.");
+            TwoPlayers = Config.Bind("General", "TwoPlayers", true,
+                "Set by the title menu: Play Split-Screen turns this on, Play Solo turns it off. Also decides how a saved offline run continues.");
             DebugAutoOffline = Config.Bind("Debug", "AutoStartOffline", false,
                 "Testing only: automatically start an offline game from the main menu.");
             DebugNoGamepad = Config.Bind("Debug", "SpawnWithoutGamepad", false,
@@ -48,7 +51,8 @@ namespace PeakSplitScreen
 
             Harmony = new Harmony(Guid);
             Patches.Apply(Harmony);
-            Log.LogInfo("PEAK Split Screen loaded. Start an OFFLINE game with a gamepad connected.");
+            MenuOption.Apply(Harmony);
+            Log.LogInfo("PEAK Split Screen loaded. Pick Play Split-Screen on the title menu with a gamepad connected.");
         }
 
         private void Update()
@@ -72,7 +76,10 @@ namespace PeakSplitScreen
                 {
                     _autoStarted = true;
                     Log.LogInfo("[debug] Starting offline game automatically.");
-                    menu.PlaySoloClicked();
+                    // Press whichever menu button matches the last choice.
+                    if (TwoPlayers.Value && MenuOption.SplitButton != null) MenuOption.SplitButton.onClick.Invoke();
+                    else if (menu.playSoloButton != null) menu.playSoloButton.onClick.Invoke();
+                    else menu.PlaySoloClicked();
                 }
             }
             if ((DebugAutoOffline.Value || DebugNoGamepad.Value || DebugFakeGamepad.Value) && Time.unscaledTime >= _nextStatus)

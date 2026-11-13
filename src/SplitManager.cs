@@ -93,7 +93,7 @@ namespace PeakSplitScreen
             }
 
             PhotonRoom room = PhotonNetwork.CurrentRoom;
-            bool allowed = Plugin.Enabled.Value && !_disabled && PhotonNetwork.OfflineMode && room != null;
+            bool allowed = Plugin.Enabled.Value && Plugin.TwoPlayers.Value && !_disabled && PhotonNetwork.OfflineMode && room != null;
             if (!allowed)
             {
                 if (_wasActive || P2Photon != null) Teardown(true);
