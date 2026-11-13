@@ -16,6 +16,9 @@ namespace PeakSplitScreen
         internal static ConfigEntry<bool> SideBySide;
         internal static ConfigEntry<bool> P2HudEnabled;
         internal static ConfigEntry<bool> TwoPlayers;
+        internal static ConfigEntry<bool> P2Sound;
+        internal static ConfigEntry<string> P2Cosmetics;
+        internal static ConfigEntry<string> DebugScript;
         internal static ConfigEntry<bool> DebugAutoOffline;
         internal static ConfigEntry<bool> DebugNoGamepad;
         internal static ConfigEntry<bool> DebugMute;
@@ -38,6 +41,12 @@ namespace PeakSplitScreen
                 "Give player 2 their own HUD (stamina, items, prompts) in their half of the window.");
             TwoPlayers = Config.Bind("General", "TwoPlayers", true,
                 "Set by the title menu: Play Split-Screen turns this on, Play Solo turns it off. Also decides how a saved offline run continues.");
+            P2Sound = Config.Bind("General", "Player2Sound", true,
+                "Let both players hear what is around them: each sound plays for whichever player is nearer. Music stays shared.");
+            P2Cosmetics = Config.Bind("Player2", "Cosmetics", "",
+                "Player 2's look, saved when they change it in their passport (skin, accessory, eyes, mouth, outfit, hat, sash, medal). Leave empty for a random look.");
+            DebugScript = Config.Bind("Debug", "Script", "basics",
+                "Testing only: what the virtual gamepad does (basics, passport, run).");
             DebugAutoOffline = Config.Bind("Debug", "AutoStartOffline", false,
                 "Testing only: automatically start an offline game from the main menu.");
             DebugNoGamepad = Config.Bind("Debug", "SpawnWithoutGamepad", false,
@@ -52,6 +61,8 @@ namespace PeakSplitScreen
             Harmony = new Harmony(Guid);
             Patches.Apply(Harmony);
             MenuOption.Apply(Harmony);
+            P2Passport.Apply(Harmony);
+            P2Audio.Apply(Harmony);
             Log.LogInfo("PEAK Split Screen loaded. Pick Play Split-Screen on the title menu with a gamepad connected.");
         }
 
@@ -61,6 +72,9 @@ namespace PeakSplitScreen
             catch (System.Exception e) { Log.LogError(e); }
             try { SplitManager.Tick(); }
             catch (System.Exception e) { SplitManager.Fail("Tick", e); }
+            try { P2Passport.Tick(); }
+            catch (System.Exception e) { Log.LogError("Passport: " + e); }
+            P2Audio.Watchdog();
             try { DebugTick(); }
             catch (System.Exception e) { Log.LogError(e); }
         }

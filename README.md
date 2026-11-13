@@ -30,6 +30,20 @@ To play alone, pick **Play Offline** as usual: that is always a normal one-playe
 
 Split screen only works in offline games. Online games are left untouched.
 
+### Player 2's passport
+
+Player 2 gets their own passport in the airport lobby, a few seconds after arriving. Use it like any held item to open it on player 2's half and change their look:
+
+| Gamepad | Does |
+| --- | --- |
+| D-pad / left stick | Move between options |
+| A | Pick the highlighted option |
+| LB / RB | Previous / next tab |
+| LT / RT | Previous / next page |
+| B or Start | Close |
+
+Player 2's look is saved separately from player 1's and comes back the next time you play.
+
 ## Settings
 
 After the first launch with the mod, a settings file appears at:
@@ -45,7 +59,10 @@ Open it in Notepad. The options under `[General]`:
 | `Enabled` | `true` | Turn the mod on or off without uninstalling. |
 | `SideBySide` | `true` | `true` splits left / right. `false` splits top / bottom. |
 | `Player2Hud` | `true` | Show player 2's own stamina bar, inventory and prompts on their half. |
+| `Player2Sound` | `true` | Both players hear what is around them. `false` goes back to hearing everything from player 1's position. |
 | `TwoPlayers` | `true` | Your last title-menu pick. Play Split-Screen sets it to `true`, Play Offline to `false`. No need to edit it by hand. |
+
+`[Player2]` has one option, `Cosmetics`: player 2's saved look, written by their passport. Clear it to get a random look again.
 
 Leave the `[Debug]` options set to `false`. They exist for testing the mod.
 
@@ -56,13 +73,15 @@ Leave the `[Debug]` options set to `false`. They exist for testing the mod.
 - The emote wheel and backpack wheel work with player 2's stick.
 - Injuries, passing out and dying apply to the right player.
 - A player who has passed out or died spectates the other one.
+- Player 2 has their own passport and their own saved look.
+- Both players hear the sounds around them: each sound plays as loud as it is for the nearer player, and comes from the side it is on for whoever is hearing it. There is one shared soundtrack.
 
 ## Known limits
 
-- Tested mostly in the airport lobby. A full run up the mountain (fog, wind, lava, campfires, traps, the end of the run) has had little testing.
-- Sounds are heard from player 1's position only.
+- Tested in the airport lobby and for the first few minutes of a run on the beach. The rest of the mountain (fog, wind, lava, campfires, traps, the end of the run) has had little testing.
+- Music and background ambience follow where player 1 is. Sound effects near player 2 have no pitch shift from movement.
 - Fog visuals follow player 1.
-- Player 2's character cosmetics have not been tested.
+- Player 2's passport only offers what player 1's account has unlocked.
 - A game update can break the mod until it is rebuilt.
 
 ## Uninstall
@@ -99,6 +118,8 @@ To refresh the installer's copy, copy `src\bin\Release\PeakSplitScreen.dll` to `
 | `Patches.cs` | Harmony patches that route game code to the right player. |
 | `SplitExtras.cs` | Smaller fixes around items and interaction. |
 | `P2Hud.cs` | Player 2's HUD, name tags and per-player screen effects. |
+| `P2Passport.cs` | Player 2's passport, gamepad navigation and saved look. |
+| `P2Audio.cs` | Mixes positional sound for both players through the one listener. |
 | `Hazards.cs` | Makes hazards affect player 2. |
 | `DebugTools.cs` | Scripted test pad used by the `[Debug]` options. |
 

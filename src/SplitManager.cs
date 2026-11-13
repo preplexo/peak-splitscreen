@@ -31,6 +31,7 @@ namespace PeakSplitScreen
         private static PhotonRoom _room;
         private static Transform _p2CharRoot, _p2PlayerRoot;
         private static Gamepad _pad;
+        public static Gamepad Pad => _pad != null && _pad.added ? _pad : null;
         private static float _spawnAt = -1f;
         private static int _failures;
         private static bool _disabled;

@@ -23,7 +23,7 @@ namespace PeakSplitScreen
             if (Plugin.DebugMute.Value)
             {
                 AudioListener.volume = 0f;
-                AudioListener.pause = true;
+                AudioListener.pause = false; // P2Audio also zeroes the volume right before each mix
             }
 
             if (Plugin.DebugFakeGamepad.Value) FakePad();
@@ -49,12 +49,15 @@ namespace PeakSplitScreen
                 Plugin.Log.LogInfo("[debug] Added virtual gamepad.");
             }
 
-            if (!SplitManager.Active) { _activeSince = -1f; return; }
+            if (!SplitManager.Active) { _activeSince = -1f; _once.Clear(); return; }
             if (_activeSince < 0f) _activeSince = Time.unscaledTime;
             float t = Time.unscaledTime - _activeSince;
             if (!_dumped && GUIManager.instance != null) { _dumped = true; DumpHud(); }
 
             var state = new GamepadState();
+            string script = (Plugin.DebugScript.Value ?? "").Trim().ToLowerInvariant();
+            if (script == "passport") { PassportScript(t, ref state); InputSystem.QueueStateEvent(_virtualPad, state); return; }
+            if (script == "run") { RunScript(t, ref state); InputSystem.QueueStateEvent(_virtualPad, state); return; }
             string phase;
             if (t < 3f) phase = "idle";
             else if (t < 5f) { phase = "turn around"; state.rightStick = new Vector2(1f, 0f); }
@@ -80,7 +83,7 @@ namespace PeakSplitScreen
             if (phase != _phase)
             {
                 _phase = phase;
-                Plugin.Log.LogInfo("[debug] virtual pad: " + phase + " | " + ItemInfo() + " | " + SplitManager.Status() + " | " + Health());
+                Plugin.Log.LogInfo("[debug] virtual pad: " + phase + " | " + ItemInfo() + " | " + SplitManager.Status() + " | " + Health() + " | " + P2Audio.Status());
             }
             if (((t >= 5f && t < 10f) || (t >= 34f && t < 37f)) && Time.unscaledTime >= _nextProbe)
             {
@@ -98,6 +101,72 @@ namespace PeakSplitScreen
         }
 
         private static GameObject _zone;
+        private static readonly System.Collections.Generic.HashSet<string> _once = new System.Collections.Generic.HashSet<string>();
+
+        private static bool Once(float t, float at, string key) => t >= at && _once.Add(key);
+        private static bool Tap(float t, float at) => t >= at && t < at + 0.15f;
+
+        private static void Say(string what)
+        {
+            Plugin.Log.LogInfo("[debug] " + what + " | " + P2Passport.Status() + " | held=" + (SplitManager.P2Character.data.currentItem != null ? SplitManager.P2Character.data.currentItem.name : "none")
+                + " p1block=" + (GUIManager.instance != null && GUIManager.instance.windowBlockingInput) + " p2block=" + (P2Hud.CloneGui != null && P2Hud.CloneGui.windowBlockingInput)
+                + " cursor=" + Cursor.lockState + " scene=" + UnityEngine.SceneManagement.SceneManager.GetActiveScene().name);
+        }
+
+        /// <summary>Player 2 opens their passport and changes something on every tab.</summary>
+        private static void PassportScript(float t, ref GamepadState state)
+        {
+            if (Once(t, 6.5f, "pre")) Say("before opening");
+            if (t >= 7f && t < 7.6f) Press(ref state, "UsePrimary");
+            if (Once(t, 8.8f, "opened")) Say("after use");
+            for (int i = 0; i < 8; i++)
+            {
+                float b = 9f + i * 3f;
+                if (Tap(t, b)) state = state.WithButton(i % 2 == 0 ? GamepadButton.DpadRight : GamepadButton.DpadDown);
+                if (Tap(t, b + 0.4f)) state = state.WithButton(GamepadButton.DpadRight);
+                if (Once(t, b + 0.75f, "moved" + i)) Say("tab " + i + " moved");
+                if (Tap(t, b + 0.8f)) state = state.WithButton(GamepadButton.South);
+                if (Tap(t, b + 1.4f)) state = state.WithButton(GamepadButton.DpadDown);
+                if (Tap(t, b + 2.0f)) state.leftStick = new Vector2(-1f, 0f);
+                if (Once(t, b + 2.3f, "tab" + i)) Say("tab " + i + " picked");
+                if (Tap(t, b + 2.4f)) state = state.WithButton(GamepadButton.RightShoulder);
+            }
+            if (Tap(t, 33.5f)) state = state.WithButton(GamepadButton.LeftShoulder);
+            if (Once(t, 34.5f, "end")) Say("before closing");
+            if (Tap(t, 35f)) state = state.WithButton(GamepadButton.East);
+            if (Once(t, 37f, "closed")) Say("after closing");
+            if (t >= 38f && t < 40f) state.leftStick = new Vector2(0f, 1f);
+            if (Once(t, 40f, "walked")) Say("after walking");
+            if (t >= 41f && t < 41.6f) Press(ref state, "UsePrimary");
+            if (Once(t, 43f, "reopened")) Say("reopened");
+            if (Tap(t, 44f)) state = state.WithButton(GamepadButton.Start);
+            if (Once(t, 46f, "done")) Say("done (closed with start; pause menu should not be open: paused=" + (P2Hud.CloneGui != null && P2Hud.CloneGui.pauseMenu != null && P2Hud.CloneGui.pauseMenu.activeSelf) + ")");
+        }
+
+        /// <summary>Start a real run from the lobby, then have player 2 wander around the island.</summary>
+        private static void RunScript(float t, ref GamepadState state)
+        {
+            string scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+            if (scene == "Airport")
+            {
+                if (Once(t, 8f, "start"))
+                {
+                    AirportCheckInKiosk kiosk = Object.FindAnyObjectByType<AirportCheckInKiosk>();
+                    Plugin.Log.LogInfo("[debug] starting a run, kiosk=" + (kiosk != null));
+                    if (kiosk != null) kiosk.StartGame(0);
+                }
+                return;
+            }
+            float c = t % 20f;
+            if (c < 8f) state.leftStick = new Vector2(0f, 1f);
+            else if (c < 10f) { state.leftStick = new Vector2(0f, 1f); Press(ref state, "Jump"); }
+            else if (c < 12f) state.rightStick = new Vector2(0.6f, 0f);
+            else if (c < 13f) Press(ref state, "Interact");
+            else if (c < 16f) { state.leftStick = new Vector2(0f, 1f); Press(ref state, "Sprint"); }
+            else if (c < 17f) Press(ref state, "Drop");
+            if (Once(t, Mathf.Floor(t / 10f) * 10f, "s" + (int)(t / 10f)))
+                Plugin.Log.LogInfo("[debug] run t=" + t.ToString("0") + " " + ItemInfo() + " | " + SplitManager.Status() + " | " + Health() + " | " + P2Audio.Status());
+        }
 
         private static void SpawnZone()
         {

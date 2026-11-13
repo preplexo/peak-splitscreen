@@ -21,6 +21,7 @@ namespace PeakSplitScreen
         private static GUIManager _p1Gui;
         private static bool _pauseRequested;
         private static int _settleFrames;
+        private static float _nextBars;
 
         // Singleton fields that may get overwritten by the copy, with player 1's value.
         private static readonly List<FieldInfo> Candidates = new List<FieldInfo>();
@@ -33,7 +34,7 @@ namespace PeakSplitScreen
         public static bool IsClone(GUIManager g) => _cloneGui != null && ReferenceEquals(g, _cloneGui);
 
         /// <summary>Player 2 pressed pause; the pause menu itself is shared and belongs to player 1's HUD.</summary>
-        public static void RequestPause() => _pauseRequested = true;
+        public static void RequestPause() { if (!P2Passport.EatsPause) _pauseRequested = true; }
 
         public static void Tick()
         {
@@ -60,6 +61,27 @@ namespace PeakSplitScreen
             {
                 try { SetupNameTags(); }
                 catch (Exception e) { Plugin.Log.LogWarning("Name tags could not be set up: " + e); }
+            }
+
+            // The game redraws the hunger / injury segments of "the" stamina bar when a status
+            // changes; with two bars, keep each one in step with its own player.
+            if (Time.unscaledTime >= _nextBars)
+            {
+                _nextBars = Time.unscaledTime + 0.25f;
+                try
+                {
+                    if (_p1Gui != null && _p1Gui.bar != null && _p1Gui.bar.afflictions != null) _p1Gui.bar.ChangeBar();
+                    if (_cloneGui != null && _cloneGui.bar != null && _cloneGui.bar.afflictions != null && SplitContext.Enter())
+                    {
+                        // The bar only looks for its segments once, among the visible ones; the copy
+                        // was made while they were hidden, so it found none.
+                        if (_cloneGui.bar.afflictions.Length == 0)
+                            _cloneGui.bar.afflictions = _cloneGui.bar.transform.parent.GetComponentsInChildren<BarAffliction>(true);
+                        try { _cloneGui.bar.ChangeBar(); }
+                        finally { SplitContext.Exit(); }
+                    }
+                }
+                catch (System.Exception e) { Plugin.Log.LogWarning("Stamina bar refresh: " + e.Message); }
             }
 
             if (_pauseRequested)

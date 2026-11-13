@@ -16,6 +16,7 @@ namespace PeakSplitScreen
         private static Character _savedCharacter;
         private static Player _savedPlayer;
         private static MainCamera _savedCamera;
+        public static MainCamera SavedCamera => _savedCamera;
         private static Character _savedSpec;
 
         // CharacterInput's static InputAction fields, and player 2's equivalents.
