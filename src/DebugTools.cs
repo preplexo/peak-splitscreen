@@ -270,22 +270,47 @@ namespace PeakSplitScreen
                 if (_testZone != null && !_testZone.windActive) _testZone.untilSwitch = -1f;
                 Plugin.Log.LogInfo("[debug] test zone=" + (_testZone != null ? _testZone.name + " bounds=" + _testZone.windZoneBounds : "none"));
             }
-            if (_testZone == null) return;
-            _testZone.windActive = true;          // hold the storm on for the whole test
-            _testZone.timeUntilNextWind = 200f;
-            _testZone.untilSwitch = 100f;
-            Bounds b = _testZone.windZoneBounds;
-            Vector3 outside = new Vector3(b.center.x, b.max.y + 200f, b.center.z);
-            Vector3 inside = b.center;
-            // 30-50: both wherever the jump put them. 50-70: player 1 above the zone. 70-90: player 2 above it.
-            if (l >= 46f && l < 70f) { if (!b.Contains(p2.Center) && Once(l, 46f, "p2in")) p2.WarpPlayer(inside, false); }
-            if (l >= 50f && l < 70f && p1.Center.y < b.max.y + 60f) p1.WarpPlayer(outside, false);
-            if (Once(l, 70f, "p1in")) p1.WarpPlayer(inside, false);
-            if (l >= 72f && l < 90f && p2.Center.y < b.max.y + 60f) p2.WarpPlayer(outside, false);
-            if (Once(l, 90f, "p2back")) p2.WarpPlayer(inside, false);
-            if (l >= 26f && Once(l, Mathf.Floor(l / 4f) * 4f, "f" + (int)(l / 4f)))
-                Plugin.Log.LogInfo("[debug] fog l=" + l.ToString("0") + " zoneActive=" + _testZone.windActive + " intensity=" + _testZone.windIntensity.ToString("0.00")
-                    + " p1in=" + b.Contains(p1.Center) + " p2in=" + b.Contains(p2.Center) + " | " + P2Fog.Status());
+            if (l < 72f && _testZone != null)
+            {
+                _testZone.windActive = true;          // hold the storm on for the wind part of the test
+                _testZone.timeUntilNextWind = 200f;
+                _testZone.untilSwitch = 100f;
+                Bounds b = _testZone.windZoneBounds;
+                if (Once(l, 28f, "homes")) { _home1 = p1.Center; _home2 = p2.Center; }
+                // 30-50: player 2 stands in the storm. 50-70: player 1 does.
+                if (Once(l, 30f, "p2in")) p2.WarpPlayer(GroundIn(b), false);
+                if (Once(l, 50f, "swap")) { p2.WarpPlayer(_home2, false); p1.WarpPlayer(GroundIn(b), false); }
+                if (Once(l, 70f, "p1back")) p1.WarpPlayer(_home1, false);
+                if (l >= 26f && Once(l, Mathf.Floor(l / 4f) * 4f, "f" + (int)(l / 4f)))
+                    Plugin.Log.LogInfo("[debug] fog l=" + l.ToString("0") + " zoneActive=" + _testZone.windActive + " intensity=" + _testZone.windIntensity.ToString("0.00")
+                        + " p1in=" + b.Contains(p1.Center) + " p2in=" + b.Contains(p2.Center) + " | " + P2Fog.Status());
+                return;
+            }
+            if (Once(l, 74f, "caldera")) { Plugin.Log.LogInfo("[debug] jumping to the caldera"); MapHandler.JumpToSegment(Segment.Caldera); }
+            if (Once(l, 88f, "dump3")) FogDump("in the caldera");
+            if (Once(l, 92f, "kiln")) { Plugin.Log.LogInfo("[debug] jumping to the kiln"); MapHandler.JumpToSegment(Segment.TheKiln); }
+            if (Once(l, 106f, "dump4")) FogDump("in the kiln");
+            // Player 2 passes out and then dies standing on the ground.
+            if (Once(l, 110f, "p2out")) { Plugin.Log.LogInfo("[debug] p2 passes out at " + p2.Center); p2.PassOutInstantly(); }
+            if (Once(l, 118f, "p2dead") && SplitContext.Enter()) { try { Character.Die(); } finally { SplitContext.Exit(); } }
+            if (l >= 72f && l < 130f && Once(l, Mathf.Floor(l / 4f) * 4f, "g" + (int)(l / 4f)))
+                Plugin.Log.LogInfo("[debug] fog l=" + l.ToString("0") + " p1=" + p1.Center + " p2=" + p2.Center + " p2dead=" + p2.data.dead + " p2out=" + p2.data.passedOut + " | " + P2Fog.Status());
+        }
+
+        private static Vector3 _home1, _home2;
+
+        /// <summary>A spot on the ground inside the zone, so a warped player does not fall.</summary>
+        private static Vector3 GroundIn(Bounds b)
+        {
+            for (int i = 0; i < 40; i++)
+            {
+                float x = Mathf.Lerp(b.min.x, b.max.x, 0.3f + 0.4f * ((i * 7) % 10) / 10f);
+                float z = Mathf.Lerp(b.min.z, b.max.z, 0.3f + 0.4f * ((i * 3) % 10) / 10f);
+                if (Physics.Raycast(new Vector3(x, b.max.y - 5f, z), Vector3.down, out RaycastHit hit, b.size.y - 10f, ~0, QueryTriggerInteraction.Ignore)
+                    && hit.normal.y > 0.8f && b.Contains(hit.point + Vector3.up * 3f))
+                    return hit.point + Vector3.up * 1.5f;
+            }
+            return b.center;
         }
 
         private static void FogDump(string where)
@@ -305,6 +330,12 @@ namespace PeakSplitScreen
                 + " PlayerShaderParams=" + (Object.FindAnyObjectByType<PlayerShaderParams>() != null)
                 + " GloomSafeZones=" + Peak.GloomSafeZone.ALL_GLOOM_SAFE_ZONES.Count
                 + " p1=" + Character.localCharacter.Center + " p2=" + SplitManager.P2Character.Center);
+            LavaPost lava = Object.FindAnyObjectByType<LavaPost>(FindObjectsInactive.Include);
+            sb.Append("\n  LavaPost=" + (lava != null ? "yes enabled=" + lava.isActiveAndEnabled + " rend=" + (lava.rend != null && lava.rend.enabled) + " parent=" + (lava.transform.parent != null ? lava.transform.parent.name : "none")
+                + " onMainCam=" + (MainCamera.instance != null && lava.transform.IsChildOf(MainCamera.instance.transform)) + " first=" + lava.firstIsActive : "no"));
+            FogCutoutHandler cut = Object.FindAnyObjectByType<FogCutoutHandler>(FindObjectsInactive.Include);
+            sb.Append("\n  FogCutoutHandler=" + (cut != null ? "yes enabled=" + cut.isActiveAndEnabled + " zones=" + (cut.cutoutZones != null ? cut.cutoutZones.Length : 0) + " index=" + cut.index
+                + " current=" + (cut.currentCutoutZone != null ? cut.currentCutoutZone.name : "none") : "no"));
             Plugin.Log.LogInfo(sb.ToString());
         }
 

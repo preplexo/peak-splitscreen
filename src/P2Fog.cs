@@ -38,13 +38,19 @@ namespace PeakSplitScreen
         private static readonly int PlayerPos = Shader.PropertyToID("PlayerPos");
         private static readonly int FogHeight = Shader.PropertyToID("FogHeight");
         private static readonly int Alpha = Shader.PropertyToID("_Alpha");
+        private static readonly int LavaHeight = Shader.PropertyToID("LavaHeight");
+        private static readonly int CutAmount = Shader.PropertyToID("FogCutoutAmount");
+        private static readonly int CutMin = Shader.PropertyToID("FogCutoutMin");
+        private static readonly int CutMax = Shader.PropertyToID("FogCutoutMax");
+        private static readonly int CutPos = Shader.PropertyToID("FogCutoutPosition");
 
         private static readonly int[] Floats =
         {
             WeatherBlend, WindSky, WindTexInfluence, WindFogDensity, WindFogTexDensity, WindMix,
-            WindAngle, WindScale, GlobalWind, SafeZone, GloomVis, CloseMod
+            WindAngle, WindScale, GlobalWind, SafeZone, GloomVis, CloseMod,
+            LavaHeight, CutAmount, CutMin, CutMax
         };
-        private static readonly int[] Vectors = { WindTint, WindSpeed, WindAxis, SafeZonePos, PlayerPos };
+        private static readonly int[] Vectors = { WindTint, WindSpeed, WindAxis, SafeZonePos, PlayerPos, CutPos };
 
         private static readonly float[] SavedFloats = new float[Floats.Length];
         private static readonly Vector4[] SavedVectors = new Vector4[Vectors.Length];
@@ -89,6 +95,18 @@ namespace PeakSplitScreen
         private static bool _fogMoved;
         private static int _appliedFrames;
 
+        // Storm sky darkening, lava haze and the fog cutout.
+        private static float _rainFactor, _snowFactor;
+        private static bool _skyChanged;
+        private static float _sunSaved, _moonSaved, _flareSaved;
+        private static LavaPost _lava;
+        private static bool _lavaChanged, _lavaRendSaved, _lavaMoved;
+        private static Vector3 _lavaPosSaved;
+        private static Quaternion _lavaRotSaved;
+        private static FogCutoutHandler _cutout;
+        private static int _cutIdx;
+        private static float _cutAmount;
+
         /// <summary>Who player 2's camera is looking at, or null when it shows player 1's view.</summary>
         private static Character Viewer()
         {
@@ -117,6 +135,7 @@ namespace PeakSplitScreen
 
             // Weather: rain, snow and wind zones.
             StormVisual inStorm = null;
+            float rain = 0f, snow = 0f;
             for (int i = Copies.Count - 1; i >= 0; i--)
             {
                 Copy c = Copies[i];
@@ -125,6 +144,8 @@ namespace PeakSplitScreen
                 if (sv != null)
                 {
                     if (TickStorm(c, sv, pos, dt)) inStorm = sv;
+                    if (sv.stormType == StormVisual.StormType.Snow) snow = Mathf.Max(snow, c.windFactor);
+                    else rain = Mathf.Max(rain, c.windFactor);
                 }
                 else TickFog(c, (Fog)c.source, pos);
             }
@@ -137,6 +158,13 @@ namespace PeakSplitScreen
                     : Mathf.MoveTowards(_blend, f.maxVal, dt * 0.3f);
             }
             else _blend = Mathf.MoveTowards(_blend, 0f, dt * 0.3f);
+            _rainFactor = rain;
+            _snowFactor = snow;
+
+            // Fog cutout: the game steps through its zones as the player moves up the mountain.
+            FogCutoutZone cut = CutZone(pos);
+            if (cut != null)
+                _cutAmount = Mathf.MoveTowards(_cutAmount, cut.amount, dt * Mathf.Max(0.01f, cut.amount) / Mathf.Max(0.05f, _cutout.fadeTime));
 
             // Gloom: clear air around lit safe zones.
             _gloom = FogSafeZoneManager.instance != null && FogSafeZoneManager.instance.isActiveAndEnabled;
@@ -280,6 +308,17 @@ namespace PeakSplitScreen
             if (Singleton<OrbFogHandler>.Instance != null) Shader.SetGlobalFloat(CloseMod, _closeFog);
             if (_playerParams != null) Shader.SetGlobalVector(PlayerPos, v.Center + _playerParams.playerCenterOffset);
 
+            ApplySky();
+            ApplyLava(cam);
+            FogCutoutZone cut = CutZone(v.Center);
+            if (cut != null && !ReferenceEquals(cut, _cutout.currentCutoutZone))
+            {
+                Shader.SetGlobalVector(CutPos, cut.transform.position);
+                Shader.SetGlobalFloat(CutMin, cut.min);
+                Shader.SetGlobalFloat(CutMax, cut.max);
+                Shader.SetGlobalFloat(CutAmount, _cutAmount);
+            }
+
             // The old rising fog is a sheet that sits under the player.
             _fogMoved = false;
             if (_fog != null && _fog.isActiveAndEnabled && _fog.stops != null)
@@ -319,6 +358,7 @@ namespace PeakSplitScreen
             for (int i = 0; i < Vectors.Length; i++) Shader.SetGlobalVector(Vectors[i], SavedVectors[i]);
             Shader.SetGlobalTexture(WindTexture, _savedTexture);
             _savedTexture = null;
+            RestoreSkyAndLava();
             if (_fogMoved && _fog != null) _fog.transform.position = _fogSavedPos;
             _fogMoved = false;
             for (int i = 0; i < Copies.Count; i++)
@@ -329,6 +369,99 @@ namespace PeakSplitScreen
             }
         }
 
+        // ------------------------------------------------------------------ sky, lava, cutout
+
+        private static int _skyFrames;
+
+        /// <summary>The cutout zone player 2 has reached, or null when the level has none.</summary>
+        private static FogCutoutZone CutZone(Vector3 pos)
+        {
+            if (_cutout == null || !_cutout.isActiveAndEnabled) return null;
+            FogCutoutZone[] zones = _cutout.cutoutZones;
+            if (zones == null || zones.Length == 0) return null;
+            if (_cutIdx >= zones.Length) _cutIdx = zones.Length - 1;
+            while (_cutIdx + 1 < zones.Length && zones[_cutIdx] != null && zones[_cutIdx + 1] != null
+                   && pos.z > zones[_cutIdx].transform.position.z + zones[_cutIdx].transitionPoint)
+                _cutIdx++;
+            return zones[_cutIdx];
+        }
+
+        /// <summary>A storm dims the sun, moon and lens flare for whoever stands in it.</summary>
+        private static void ApplySky()
+        {
+            _skyChanged = false;
+            DayNightManager d = DayNightManager.instance;
+            if (d == null || d.sun == null || d.moon == null || d.currentProfile == null || d.newProfile == null) return;
+            float theirs = -(d.snowstormWindFactor * 1.75f + d.rainstormWindFactor * 1.25f);
+            float mine = -(_snowFactor * 1.75f + _rainFactor * 1.25f);
+            if (Mathf.Abs(theirs - mine) < 0.005f) return;
+            _skyChanged = true;
+            _skyFrames++;
+            _sunSaved = d.sun.intensity;
+            _moonSaved = d.moon.intensity;
+            float a = d.sun.color.a;
+            float strength = Mathf.Lerp(d.currentProfile.sunIntensity, d.newProfile.sunIntensity, d.profileBlend);
+            d.sun.intensity = Mathf.Max(0.015f, (a * 2f - 1f) * 0.5f * strength + mine);
+            d.moon.intensity = Mathf.Max(0.015f, (1f - a * 2f) * 0.5f * strength + mine);
+            if (d.lensFlare != null)
+            {
+                _flareSaved = d.lensFlare.intensity;
+                d.lensFlare.intensity = (a - 0.5f) * 2f * d.lensFlareStr + mine;
+            }
+        }
+
+        /// <summary>The lava haze picks its height and whether it shows from where the camera is.</summary>
+        private static void ApplyLava(Camera cam)
+        {
+            _lavaChanged = false;
+            _lavaMoved = false;
+            LavaPost l = _lava;
+            if (l == null || !l.isActiveAndEnabled || l.lava1 == null || l.lava2 == null || l.rend == null) return;
+            _lavaChanged = true;
+            float z = cam.transform.position.z;
+            if (l.thresholdTransform != null)
+            {
+                bool first = z < l.thresholdTransform.position.z;
+                if (first != l.firstIsActive) Shader.SetGlobalFloat(LavaHeight, first ? l.lava1.position.y : l.lava2.position.y);
+            }
+            _lavaRendSaved = l.rend.enabled;
+            if (l.lavaFadeIn != null) l.rend.enabled = z >= l.lavaFadeIn.position.z;
+            // If the haze sheet rides on player 1's camera, put it in the same spot on player 2's.
+            MainCamera main = MainCamera.instance;
+            Transform t = l.rend.transform;
+            if (main != null && t.IsChildOf(main.transform))
+            {
+                _lavaPosSaved = t.position;
+                _lavaRotSaved = t.rotation;
+                Transform mt = main.transform, ct = cam.transform;
+                t.SetPositionAndRotation(ct.TransformPoint(mt.InverseTransformPoint(t.position)),
+                    ct.rotation * (Quaternion.Inverse(mt.rotation) * t.rotation));
+                _lavaMoved = true;
+            }
+        }
+
+        private static void RestoreSkyAndLava()
+        {
+            if (_skyChanged)
+            {
+                DayNightManager d = DayNightManager.instance;
+                if (d != null)
+                {
+                    if (d.sun != null) d.sun.intensity = _sunSaved;
+                    if (d.moon != null) d.moon.intensity = _moonSaved;
+                    if (d.lensFlare != null) d.lensFlare.intensity = _flareSaved;
+                }
+                _skyChanged = false;
+            }
+            if (_lavaChanged && _lava != null && _lava.rend != null)
+            {
+                _lava.rend.enabled = _lavaRendSaved;
+                if (_lavaMoved) _lava.rend.transform.SetPositionAndRotation(_lavaPosSaved, _lavaRotSaved);
+            }
+            _lavaChanged = false;
+            _lavaMoved = false;
+        }
+
         // ------------------------------------------------------------------ copies
 
         private static void Scan()
@@ -337,6 +470,8 @@ namespace PeakSplitScreen
             _dispels = Object.FindObjectsByType<DispelFogField>(FindObjectsSortMode.None);
             _fog = Object.FindAnyObjectByType<Fog>();
             _playerParams = Object.FindAnyObjectByType<PlayerShaderParams>();
+            _lava = Object.FindAnyObjectByType<LavaPost>();
+            _cutout = Object.FindAnyObjectByType<FogCutoutHandler>();
             for (int i = 0; i < _storms.Length; i++)
             {
                 StormVisual sv = _storms[i];
@@ -439,6 +574,12 @@ namespace PeakSplitScreen
             _dispels = new DispelFogField[0];
             _fog = null;
             _playerParams = null;
+            _lava = null;
+            _cutout = null;
+            _cutIdx = 0;
+            _cutAmount = 0f;
+            _rainFactor = 0f;
+            _snowFactor = 0f;
             _fogConfig = null;
             _blend = 0f;
             _wind = 0f;
@@ -455,6 +596,7 @@ namespace PeakSplitScreen
             int playing = 0;
             foreach (Copy c in Copies) if (c.playing) playing++;
             return $"fog: storms={_storms.Length} copies={Copies.Count} playing={playing} blend={_blend:0.00} wind={_wind:0.00} safe={1f - _safeBlend:0.00} close={_closeFog:0.00}"
+                 + $" sky={_rainFactor:0.00}/{_snowFactor:0.00} sun={(DayNightManager.instance != null && DayNightManager.instance.sun != null ? DayNightManager.instance.sun.intensity : -1f):0.00} skyApplied={_skyFrames} lava={(_lava != null)} cut={(_cutout != null ? _cutIdx.ToString() : "none")}"
                  + $" oldFog={(_fog != null && _fog.isActiveAndEnabled)} applied={_appliedFrames} gloom={_gloom}"
                  + $" | P1 globals blend={Shader.GetGlobalFloat(WeatherBlend):0.00} wind={Shader.GetGlobalFloat(GlobalWind):0.00} safe={Shader.GetGlobalFloat(SafeZone):0.00} close={Shader.GetGlobalFloat(CloseMod):0.00}";
         }

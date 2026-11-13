@@ -82,7 +82,7 @@ Leave the `[Debug]` options set to `false`. They exist for testing the mod.
 - Tested in the airport lobby and for the first few minutes of a run on the beach. The rest of the mountain (fog, wind, lava, campfires, traps, the end of the run) has had little testing.
 - Music and background ambience follow where player 1 is. Sound effects near player 2 have no pitch shift from movement.
 - Per-player weather has only been tested in a wind storm. The rising fog and the fog-clearing fields use the same code path but have not been seen in a test run yet.
-- A few weather details still follow player 1: the sky darkening during a storm, lava heat haze, and the clear bubble the fog leaves around a player.
+- The sky darkening during a storm is per player and was tested. Lava heat haze and the clear bubble the fog leaves around a player are also per player, but were only checked with both players standing together.
 - Player 2's passport offers what player 1's account has unlocked. Locked hats, sashes and other options stay locked for both players.
 - A game update can break the mod until it is rebuilt.
 
