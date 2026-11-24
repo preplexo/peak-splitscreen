@@ -74,7 +74,7 @@ The options under `[General]`:
 
 ## Reporting a problem
 
-Open an issue on the [GitHub page](https://github.com/OrChen17/peak-splitscreen/issues) and attach `BepInEx\LogOutput.log` from the run where it went wrong.
+Open an issue on the [GitHub page](https://github.com/preplexo/peak-splitscreen/issues) and attach `BepInEx\LogOutput.log` from the run where it went wrong.
 
 ## What works
 

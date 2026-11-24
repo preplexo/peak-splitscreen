@@ -61,4 +61,4 @@ Open `orchen17.peak.splitscreen.cfg` in your mod manager's config editor (it app
 
 ## Bugs
 
-Report problems on the [Nexus Mods page](https://www.nexusmods.com/peak/mods/247) and attach `BepInEx\LogOutput.log` from the run where it went wrong.
+Report problems on [GitHub](https://github.com/preplexo/peak-splitscreen/issues) or the [Nexus Mods page](https://www.nexusmods.com/peak/mods/247) and attach `BepInEx\LogOutput.log` from the run where it went wrong.
