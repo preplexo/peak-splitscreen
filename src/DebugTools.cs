@@ -28,6 +28,12 @@ namespace PeakSplitScreen
 
             if (Plugin.DebugFakeGamepad.Value) FakePad();
 
+            // Menu screenshots: keep the split-screen sign highlighted.
+            if ((Plugin.DebugScript.Value ?? "").Trim().ToLowerInvariant() == "menushot" && MenuOption.SplitButton != null
+                && UnityEngine.EventSystems.EventSystem.current != null
+                && UnityEngine.EventSystems.EventSystem.current.currentSelectedGameObject != MenuOption.SplitButton.gameObject)
+                MenuOption.SplitButton.Select();
+
             if (Plugin.DebugScreenshots.Value && Time.unscaledTime >= _nextShot)
             {
                 _nextShot = Time.unscaledTime + 4f;
@@ -59,6 +65,7 @@ namespace PeakSplitScreen
             if (script == "passport") { PassportScript(t, ref state); InputSystem.QueueStateEvent(_virtualPad, state); return; }
             if (script == "run") { RunScript(t, ref state); InputSystem.QueueStateEvent(_virtualPad, state); return; }
             if (script == "fog") { FogScript(t); InputSystem.QueueStateEvent(_virtualPad, state); return; }
+            if (script == "photo") { PhotoScript(t); InputSystem.QueueStateEvent(_virtualPad, state); return; }
             string phase;
             if (t < 3f) phase = "idle";
             else if (t < 5f) { phase = "turn around"; state.rightStick = new Vector2(1f, 0f); }
@@ -298,6 +305,54 @@ namespace PeakSplitScreen
         }
 
         private static Vector3 _home1, _home2;
+
+        /// <summary>Stand the two players facing each other in a few places, for screenshots.</summary>
+        private static void PhotoScript(float t)
+        {
+            string scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+            if (scene == "Airport")
+            {
+                _levelAt = -1f;
+                if (Once(t, 8f, "start"))
+                {
+                    AirportCheckInKiosk kiosk = Object.FindAnyObjectByType<AirportCheckInKiosk>();
+                    if (kiosk != null) kiosk.StartGame(0);
+                }
+                return;
+            }
+            if (_levelAt < 0f) _levelAt = t;
+            float l = t - _levelAt;
+            Character p1 = Character.localCharacter, p2 = SplitManager.P2Character;
+            if (p1 == null || p2 == null) return;
+            // Each stop: 0 arrive, 4 place player 2, 6-20 face each other, screenshots run every 4 s.
+            Segment[] stops = { Segment.Beach, Segment.Tropics, Segment.Alpine };
+            int stop = (int)(l / 24f);
+            if (stop >= stops.Length) return;
+            float s = l - stop * 24f;
+            if (stop > 0 && Once(l, stop * 24f, "jump" + stop)) MapHandler.JumpToSegment(stops[stop]);
+            if (Once(l, stop * 24f + 6f, "place" + stop))
+            {
+                Vector3 fwd = p1.data.lookDirection_Flat;
+                if (fwd.sqrMagnitude < 0.01f) fwd = Vector3.forward;
+                Vector3 at = p1.Center + fwd.normalized * 3.2f + Vector3.up * 3f;
+                if (Physics.Raycast(at, Vector3.down, out RaycastHit hit, 10f, ~0, QueryTriggerInteraction.Ignore)) at = hit.point + Vector3.up * 1.2f;
+                p2.WarpPlayer(at, false);
+            }
+            if (s >= 8f && s < 22f)
+            {
+                Vector3 d = p2.Center - p1.Center;
+                d.y = 0f;
+                if (d.sqrMagnitude > 0.01f)
+                {
+                    Vector3 look1 = HelperFunctions.DirectionToLook(d.normalized + Vector3.down * 0.12f);
+                    Vector3 look2 = HelperFunctions.DirectionToLook(-d.normalized + Vector3.down * 0.12f);
+                    p1.data.lookValues = new Vector2(look1.x, look1.y);
+                    p2.data.lookValues = new Vector2(look2.x, look2.y);
+                }
+                if (Once(l, Mathf.Floor(l / 4f) * 4f, "ph" + (int)(l / 4f)))
+                    Plugin.Log.LogInfo("[debug] photo stop=" + stop + " s=" + s.ToString("0") + " p1=" + p1.Center + " p2=" + p2.Center);
+            }
+        }
 
         /// <summary>A spot on the ground inside the zone, so a warped player does not fall.</summary>
         private static Vector3 GroundIn(Bounds b)

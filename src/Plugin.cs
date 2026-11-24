@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace PeakSplitScreen
 {
-    [BepInPlugin(Guid, "PEAK Split Screen", Version)]
+    [BepInPlugin(Guid, "Spleak", Version)]
     public class Plugin : BaseUnityPlugin
     {
         public const string Guid = "orchen17.peak.splitscreen";
@@ -79,7 +79,7 @@ namespace PeakSplitScreen
             MenuOption.Apply(Harmony);
             P2Passport.Apply(Harmony);
             P2Audio.Apply(Harmony);
-            Log.LogInfo("PEAK Split Screen loaded. Pick Play Split-Screen on the title menu with a gamepad connected.");
+            Log.LogInfo("Spleak loaded. Pick Play Split-Screen on the title menu with a gamepad connected.");
         }
 
         private void Update()

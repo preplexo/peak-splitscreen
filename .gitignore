@@ -12,3 +12,6 @@ src/obj/
 
 # packaged release
 dist/*.zip
+
+# Nexus upload files
+nexus/out/

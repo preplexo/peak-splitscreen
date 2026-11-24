@@ -1,4 +1,4 @@
-# PEAK Split Screen
+# Spleak - Local Splitscreen for PEAK
 
 A mod for [PEAK](https://store.steampowered.com/app/3527290/PEAK/) that lets two people play on one PC, in one window, with the screen split in two.
 
@@ -13,7 +13,7 @@ This is an unofficial mod. It is not affiliated with or endorsed by the makers o
 
 ### With a mod manager
 
-Install **PEAK Split Screen** from Thunderstore with r2modman or Gale, then start the game from the mod manager.
+Install **Spleak** from Thunderstore with r2modman or Gale, then start the game from the mod manager.
 
 ### By hand
 
