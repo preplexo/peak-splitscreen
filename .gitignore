@@ -15,3 +15,4 @@ dist/*.zip
 
 # Nexus upload files
 nexus/out/
+nexus/promo-posts.md
