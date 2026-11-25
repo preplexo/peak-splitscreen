@@ -55,6 +55,12 @@ namespace PeakSplitScreen
                 Plugin.Log.LogInfo("[debug] Added virtual gamepad.");
             }
 
+            if ((Plugin.DebugScript.Value ?? "").Trim().ToLowerInvariant() == "twopads" && (_p1VirtualPad == null || !_p1VirtualPad.added))
+            {
+                _p1VirtualPad = InputSystem.AddDevice<Gamepad>("SplitScreen Virtual Pad P1");
+                Plugin.Log.LogInfo("[debug] Added player 1 virtual gamepad.");
+            }
+
             if (!SplitManager.Active) { _activeSince = -1f; _once.Clear(); return; }
             if (_activeSince < 0f) _activeSince = Time.unscaledTime;
             float t = Time.unscaledTime - _activeSince;
@@ -66,6 +72,7 @@ namespace PeakSplitScreen
             if (script == "run") { RunScript(t, ref state); InputSystem.QueueStateEvent(_virtualPad, state); return; }
             if (script == "fog") { FogScript(t); InputSystem.QueueStateEvent(_virtualPad, state); return; }
             if (script == "photo") { PhotoScript(t); InputSystem.QueueStateEvent(_virtualPad, state); return; }
+            if (script == "twopads") { TwoPadsScript(t, ref state); InputSystem.QueueStateEvent(_virtualPad, state); return; }
             string phase;
             if (t < 3f) phase = "idle";
             else if (t < 5f) { phase = "turn around"; state.rightStick = new Vector2(1f, 0f); }
@@ -106,6 +113,48 @@ namespace PeakSplitScreen
                 Physics.SyncTransforms();
             }
             InputSystem.QueueStateEvent(_virtualPad, state);
+        }
+
+        private static Gamepad _p1VirtualPad;
+        private static string _twoPhase = "";
+        private static bool _keyDown;
+
+        /// <summary>Two virtual pads: checks each pad drives only its own player, and keyboard/pad switching for player 1.</summary>
+        private static void TwoPadsScript(float t, ref GamepadState p2)
+        {
+            var p1 = new GamepadState();
+            bool key = false;
+            string phase;
+            if (t < 2f) phase = "idle";
+            else if (t < 5f) { phase = "both pads mirrored (must not claim a p1 pad)"; p1.leftStick = p2.leftStick = new Vector2(0f, 1f); }
+            else if (t < 7f) phase = "idle 2";
+            else if (t < 10f) { phase = "p1 pad forward"; p1.leftStick = new Vector2(0f, 1f); }
+            else if (t < 12f) phase = "idle 3";
+            else if (t < 15f) { phase = "p2 pad forward"; p2.leftStick = new Vector2(0f, 1f); }
+            else if (t < 17f) phase = "idle 4";
+            else if (t < 20f) { phase = "p1 pad turn"; p1.rightStick = new Vector2(1f, 0f); }
+            else if (t < 22f) phase = "idle 5";
+            else if (t < 25f) { phase = "keyboard W"; key = true; }
+            else if (t < 27f) phase = "idle 6";
+            else if (t < 30f) { phase = "p1 pad back"; p1.leftStick = new Vector2(0f, -1f); }
+            else phase = "done";
+
+            if (_p1VirtualPad != null && _p1VirtualPad.added) InputSystem.QueueStateEvent(_p1VirtualPad, p1);
+            if (key != _keyDown && Keyboard.current != null)
+            {
+                _keyDown = key;
+                InputSystem.QueueStateEvent(Keyboard.current, key ? new KeyboardState(Key.W) : new KeyboardState());
+            }
+            if (phase != _twoPhase)
+            {
+                Character c1 = Character.localCharacter;
+                Character c2 = SplitManager.P2Character;
+                Plugin.Log.LogInfo($"[debug] twopads end of '{_twoPhase}': p1={(c1 != null ? c1.Center.ToString() : "none")} p1look={(c1 != null ? c1.data.lookValues.ToString() : "none")}"
+                    + $" p2={(c2 != null ? c2.Center.ToString() : "none")} p2look={(c2 != null ? c2.data.lookValues.ToString() : "none")}"
+                    + $" p1scheme={Zorro.ControllerSupport.InputHandler.GetCurrentUsedInputScheme()} p1pad={(SplitManager.P1Pad != null ? SplitManager.P1Pad.displayName : "none")}"
+                    + $" p2pad={(SplitManager.Pad != null ? SplitManager.Pad.displayName : "none")}");
+                _twoPhase = phase;
+            }
         }
 
         private static GameObject _zone;

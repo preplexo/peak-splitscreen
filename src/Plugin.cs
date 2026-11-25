@@ -10,7 +10,7 @@ namespace PeakSplitScreen
     public class Plugin : BaseUnityPlugin
     {
         public const string Guid = "orchen17.peak.splitscreen";
-        public const string Version = "0.1.0";
+        public const string Version = "0.2.0";
         private const string OldGuid = "local.peak.splitscreen";
 
         internal static ManualLogSource Log;
@@ -19,6 +19,7 @@ namespace PeakSplitScreen
         internal static ConfigEntry<bool> P2HudEnabled;
         internal static ConfigEntry<bool> TwoPlayers;
         internal static ConfigEntry<bool> P2Sound;
+        internal static ConfigEntry<bool> TwoGamepads;
         internal static ConfigEntry<string> P2Cosmetics;
         internal static ConfigEntry<string> DebugScript;
         internal static ConfigEntry<bool> DebugAutoOffline;
@@ -57,12 +58,14 @@ namespace PeakSplitScreen
                 "Give player 2 their own HUD (stamina, items, prompts) in their half of the window.");
             TwoPlayers = Config.Bind("General", "TwoPlayers", true,
                 "Set by the title menu: Play Split-Screen turns this on, Play Solo turns it off. Also decides how a saved offline run continues.");
+            TwoGamepads = Config.Bind("General", "TwoGamepads", true,
+                "With two gamepads connected, player 1 can play on the second one. Player 1 switches between keyboard/mouse and their gamepad by using either. Player 2 always keeps the first gamepad.");
             P2Sound = Config.Bind("General", "Player2Sound", true,
                 "Let both players hear what is around them: each sound plays for whichever player is nearer. Music stays shared.");
             P2Cosmetics = Config.Bind("Player2", "Cosmetics", "",
                 "Player 2's look, saved when they change it in their passport (skin, accessory, eyes, mouth, outfit, hat, sash, medal). Leave empty for a random look.");
             DebugScript = dbg.Bind("Debug", "Script", "basics",
-                "Testing only: what the virtual gamepad does (basics, passport, run, fog).");
+                "Testing only: what the virtual gamepad does (basics, passport, run, fog, photo, menushot, twopads).");
             DebugAutoOffline = dbg.Bind("Debug", "AutoStartOffline", false,
                 "Testing only: automatically start an offline game from the main menu.");
             DebugNoGamepad = dbg.Bind("Debug", "SpawnWithoutGamepad", false,

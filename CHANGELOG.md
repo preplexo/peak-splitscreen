@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.0
+
+- Two gamepads: with a second gamepad connected, player 1 can play on it instead of keyboard and mouse. Player 1 switches between keyboard/mouse and their gamepad just by using either one.
+- Player 2 always keeps the first gamepad. A controller that shows up twice (as some do through Steam Input) still only drives player 2.
+- New setting `TwoGamepads` (on by default) to turn this off.
+
 ## 0.1.0
 
 First public release.

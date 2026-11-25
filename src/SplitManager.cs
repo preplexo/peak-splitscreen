@@ -277,20 +277,33 @@ namespace PeakSplitScreen
             if (padLost || padFound || !_devicesAssigned)
             {
                 _devicesAssigned = true;
-                _pad = DebugTools.VirtualPad ?? (Gamepad.all.Count > 0 ? Gamepad.all[0] : null);
+                _pad = DebugTools.VirtualPad;
+                if (_pad == null)
+                {
+                    // Prefer a pad player 1 is not using, so a reconnect does not take player 1's.
+                    foreach (Gamepad g in Gamepad.all) if (g != _p1Pad) { _pad = g; break; }
+                    if (_pad == null && Gamepad.all.Count > 0) _pad = Gamepad.all[0];
+                }
                 P2Actions.Disable();
                 P2Actions.devices = _pad != null ? new InputDevice[] { _pad } : new InputDevice[0];
                 P2Actions.Enable();
                 Plugin.Log.LogInfo("Player 2 gamepad: " + (_pad != null ? _pad.displayName : "none"));
             }
 
-            if (Time.unscaledTime < _nextInputCheck) return;
+            bool switched = UpdateP1Pad();
+            if (!switched && Time.unscaledTime < _nextInputCheck) return;
             _nextInputCheck = Time.unscaledTime + 1f;
 
-            // Keep player 1 on keyboard + mouse so the pad only drives player 2.
+            // Player 1 uses keyboard + mouse, or their own gamepad if there is a second one.
+            // Player 2's pad never drives player 1.
+            Gamepad p1Pad = _p1OnPad ? P1Pad : null;
             var devices = new List<InputDevice>();
-            if (Keyboard.current != null) devices.Add(Keyboard.current);
-            if (Mouse.current != null) devices.Add(Mouse.current);
+            if (p1Pad != null) devices.Add(p1Pad);
+            else
+            {
+                if (Keyboard.current != null) devices.Add(Keyboard.current);
+                if (Mouse.current != null) devices.Add(Mouse.current);
+            }
             if (devices.Count == 0) return;
 
             PlayerInput pi = null;
@@ -300,12 +313,16 @@ namespace PeakSplitScreen
             {
                 string scheme = null;
                 foreach (var s in pi.actions.controlSchemes)
-                    if (s.name.IndexOf("Keyboard", StringComparison.OrdinalIgnoreCase) >= 0) scheme = s.name;
+                {
+                    if (p1Pad != null ? s.name.IndexOf("Gamepad", StringComparison.OrdinalIgnoreCase) >= 0
+                                      : s.name.IndexOf("Keyboard", StringComparison.OrdinalIgnoreCase) >= 0)
+                        scheme = s.name;
+                }
                 pi.neverAutoSwitchControlSchemes = true;
-                if (scheme != null && (first || pi.currentControlScheme != scheme))
+                if (scheme != null && (first || switched || pi.currentControlScheme != scheme))
                     pi.SwitchCurrentControlScheme(scheme, devices.ToArray());
-                if (first)
-                    Plugin.Log.LogInfo($"Player 1 locked to scheme '{scheme}'. PlayerInput shares the global actions: {ReferenceEquals(pi.actions, InputSystem.actions)}");
+                if (first || switched)
+                    Plugin.Log.LogInfo($"Player 1 uses scheme '{scheme}' ({(p1Pad != null ? p1Pad.displayName : "keyboard and mouse")}). PlayerInput shares the global actions: {ReferenceEquals(pi.actions, InputSystem.actions)}");
             }
             if (pi == null || !ReferenceEquals(pi.actions, InputSystem.actions))
             {
@@ -313,6 +330,63 @@ namespace PeakSplitScreen
                 _setGlobalDevices = true;
             }
             _p1InputRestricted = true;
+        }
+
+        // ------------------------------------------------------------------ player 1's gamepad
+
+        private static Gamepad _p1Pad;
+        private static bool _p1OnPad;
+        public static Gamepad P1Pad => _p1Pad != null && _p1Pad.added && _p1Pad != _pad ? _p1Pad : null;
+
+        /// <summary>
+        /// Finds player 1's gamepad and picks keyboard or gamepad for player 1 from whichever they used last.
+        /// A pad becomes player 1's only when it sends input while player 2's pad is idle, so a controller
+        /// that shows up as two devices (as some do through Steam Input) never gets split between players.
+        /// Returns true when player 1 switched between keyboard and gamepad.
+        /// </summary>
+        private static bool UpdateP1Pad()
+        {
+            if (_p1Pad != null && P1Pad == null)
+            {
+                Plugin.Log.LogInfo("Player 1's gamepad is gone; player 1 is back on keyboard and mouse.");
+                _p1Pad = null;
+            }
+            if (_p1Pad == null && Plugin.TwoGamepads.Value && (_pad == null || !Actuated(_pad)))
+            {
+                foreach (Gamepad g in Gamepad.all)
+                {
+                    if (g == _pad || !Actuated(g)) continue;
+                    _p1Pad = g;
+                    Plugin.Log.LogInfo("Player 1 gamepad: " + g.displayName);
+                    break;
+                }
+            }
+
+            bool want = _p1OnPad;
+            Gamepad p1 = P1Pad;
+            if (p1 == null || !Plugin.TwoGamepads.Value) want = false;
+            else if (Actuated(p1)) want = true;
+            else if (KeyboardMouseUsed()) want = false;
+            if (want == _p1OnPad) return false;
+            _p1OnPad = want;
+            return true;
+        }
+
+        private static bool Actuated(Gamepad g)
+        {
+            if (g == null || !g.added) return false;
+            if (g.leftStick.ReadValue().sqrMagnitude > 0.25f || g.rightStick.ReadValue().sqrMagnitude > 0.25f) return true;
+            foreach (InputControl c in g.allControls)
+                if (c is UnityEngine.InputSystem.Controls.ButtonControl b && !b.synthetic && b.isPressed) return true;
+            return false;
+        }
+
+        private static bool KeyboardMouseUsed()
+        {
+            Keyboard k = Keyboard.current;
+            if (k != null && k.anyKey.isPressed) return true;
+            Mouse m = Mouse.current;
+            return m != null && (m.leftButton.isPressed || m.rightButton.isPressed || m.delta.ReadValue().sqrMagnitude > 25f);
         }
 
         private static void RestoreInput()
@@ -337,6 +411,8 @@ namespace PeakSplitScreen
             }
             SplitContext.ResetInputCache();
             _pad = null;
+            _p1Pad = null;
+            _p1OnPad = false;
         }
 
         // ------------------------------------------------------------------ camera

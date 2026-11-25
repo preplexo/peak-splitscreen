@@ -1,8 +1,8 @@
 {
   "name": "Spleak",
-  "version_number": "0.1.0",
-  "website_url": "https://www.nexusmods.com/peak/mods/247",
-  "description": "Local split-screen for PEAK: two players on one PC in one window. Player 1 on keyboard and mouse, player 2 on a gamepad. Pick Play Split-Screen on the title menu.",
+  "version_number": "0.2.0",
+  "website_url": "https://github.com/preplexo/peak-splitscreen",
+  "description": "Local split-screen for PEAK: two players on one PC in one window. Player 1 on keyboard/mouse or a gamepad, player 2 on a gamepad. Pick Play Split-Screen on the title menu.",
   "dependencies": [
     "BepInEx-BepInExPack_PEAK-5.4.75301"
   ]

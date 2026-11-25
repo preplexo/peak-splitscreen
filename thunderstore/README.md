@@ -2,7 +2,7 @@
 
 Couch co-op for PEAK: two players, one PC, one window.
 
-- **Player 1** plays with keyboard and mouse.
+- **Player 1** plays with keyboard and mouse, or with a second gamepad.
 - **Player 2** plays with a gamepad.
 
 The game runs once and draws two views. There is no second copy of the game to launch, no second Steam account and no Nucleus Co-op setup.
@@ -17,6 +17,8 @@ AI disclosure: the code was written with an AI coding assistant, directed and pl
 2. Start PEAK from your mod manager.
 3. On the title menu, pick **Play Split-Screen** (the new sign under Play Offline).
 4. Player 2 appears next to player 1 and the screen splits.
+
+**Two gamepads:** connect a second one and player 1 can play on it. Player 2 keeps the first gamepad; player 1 switches between keyboard/mouse and their gamepad just by using either. If the pads are the wrong way round, swap controllers.
 
 Pick **Play Offline** any time for a normal solo game. Split screen only works in offline games; online lobbies are left untouched.
 
@@ -49,6 +51,7 @@ Open `orchen17.peak.splitscreen.cfg` in your mod manager's config editor (it app
 | `Enabled` | `true` | Turn the mod on or off. |
 | `SideBySide` | `true` | `true` splits left / right, `false` top / bottom. |
 | `Player2Hud` | `true` | Player 2's own HUD on their half. |
+| `TwoGamepads` | `true` | Let player 1 play on a second gamepad. |
 | `Player2Sound` | `true` | Sound for both players, or only from player 1's position. |
 
 ## Good to know

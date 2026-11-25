@@ -2,7 +2,7 @@
 
 A mod for [PEAK](https://store.steampowered.com/app/3527290/PEAK/) that lets two people play on one PC, in one window, with the screen split in two.
 
-- **Player 1** plays with keyboard and mouse.
+- **Player 1** plays with keyboard and mouse, or with a second gamepad.
 - **Player 2** plays with a gamepad.
 
 It runs the game once and draws two views, so there is no second copy of the game to launch and no extra tool to set up.
@@ -33,6 +33,12 @@ Windows may warn about running a downloaded `.bat` file. Choose **More info > Ru
 2. Start PEAK from Steam.
 3. On the title menu, pick **Play Split-Screen** (the new sign with two hikers, under Play Offline).
 4. Player 2 appears next to player 1 and the screen splits. Player 2 uses the game's normal gamepad controls.
+
+### Two gamepads
+
+Connect a second gamepad and player 1 can use it instead of keyboard and mouse. Player 2 keeps the first gamepad, and player 1's is the other one: press a button on it and it becomes player 1's. Player 1 can switch back and forth between keyboard/mouse and their gamepad at any time just by using either.
+
+Which gamepad is player 2's depends on the order Windows sees them in, usually the one connected first. If they are the wrong way round, just swap controllers.
 
 To play alone, pick **Play Offline** as usual: that is always a normal one-player game. The game remembers your last pick, so continuing a saved offline run uses the same number of players.
 
@@ -67,6 +73,7 @@ The options under `[General]`:
 | `Enabled` | `true` | Turn the mod on or off without uninstalling. |
 | `SideBySide` | `true` | `true` splits left / right. `false` splits top / bottom. |
 | `Player2Hud` | `true` | Show player 2's own stamina bar, inventory and prompts on their half. |
+| `TwoGamepads` | `true` | With a second gamepad connected, player 1 can play on it. `false` keeps player 1 on keyboard and mouse only. |
 | `Player2Sound` | `true` | Both players hear what is around them. `false` goes back to hearing everything from player 1's position. |
 | `TwoPlayers` | `true` | Your last title-menu pick. Play Split-Screen sets it to `true`, Play Offline to `false`. No need to edit it by hand. |
 
